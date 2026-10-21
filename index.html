@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Isomer: The Local-First Converter</title>
+  <meta name="description"
+    content="Convert images, videos, and audio files instantly in your browser. HEIC to JPG, MOV to MP4, WAV to MP3, and dozens more — free, private, no upload needed." />
+  <link rel="stylesheet" href="css/styles.css" />
+
+  <!-- heic2any for HEIC/HEIF conversion -->
+  <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+  <!-- JSZip for batch ZIP download -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+</head>
+
+<body>
+
+  <div class="bg-mesh" aria-hidden="true"></div>
+  <div class="bg-grid" aria-hidden="true"></div>
+
+  <div class="container">
+
+    <!-- Header -->
+    <header>
+      <div class="badge">
+        <span class="dot"></span>
+        100% Private · Runs in Browser
+      </div>
+      <h1>Isomer</h1>
+      <p class="subtitle">
+        Convert images, videos &amp; audio without uploading anything.
+        Your files never leave your device.
+      </p>
+    </header>
+
+    <!-- Type Tabs -->
+    <div class="type-tabs" role="tablist">
+      <button class="type-tab active" data-type="image" id="tab-image" role="tab">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8"
+          stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3 20.25h18M3.75 4.5h16.5A.75.75 0 0121 5.25v13.5a.75.75 0 01-.75.75H3.75a.75.75 0 01-.75-.75V5.25A.75.75 0 013.75 4.5z" />
+        </svg>
+        Images
+      </button>
+      <button class="type-tab" data-type="video" id="tab-video" role="tab">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8"
+          stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9A2.25 2.25 0 004.5 18.75z" />
+        </svg>
+        Video
+      </button>
+      <button class="type-tab" data-type="audio" id="tab-audio" role="tab">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8"
+          stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z" />
+        </svg>
+        Audio
+      </button>
+    </div>
+
+    <!-- Drop Zone -->
+    <div class="drop-zone" id="dropZone" role="button" tabindex="0" aria-label="Drop files here or click to browse">
+      <div class="drop-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+          stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M12 16.5V9.75m0 0l-3 3m3-3l3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.338-2.32 5.75 5.75 0 011.344 11.079A4.5 4.5 0 0118 19.5H6.75z" />
+        </svg>
+      </div>
+      <h2>Drop your files here</h2>
+      <p>or click to browse &mdash; multiple files supported</p>
+      <button class="browse-btn" id="browseBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+          width="16" height="16">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+        </svg>
+        Choose Files
+      </button>
+      <div class="supported-formats" id="supportedFmts"></div>
+    </div>
+
+    <input type="file" id="fileInput" aria-label="File input" style="display:none" multiple />
+
+    <!-- FFmpeg Loading Banner -->
+    <div class="ffmpeg-banner hidden" id="ffmpegBanner">
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round"
+          d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+      </svg>
+      <span id="ffmpegBannerText">Loading FFmpeg engine …</span>
+    </div>
+
+    <!-- File Queue Section -->
+    <div class="converter-card hidden" id="converterSection">
+
+      <!-- Format selector (shared) -->
+      <div class="section-label">Convert all to</div>
+      <div class="format-grid" id="formatGrid"></div>
+
+      <!-- Quality slider -->
+      <div id="qualitySection" class="hidden">
+        <div class="sep"></div>
+        <div class="quality-row">
+          <label for="qualitySlider">Quality</label>
+          <input type="range" id="qualitySlider" min="10" max="100" value="92" aria-label="Output quality" />
+          <span class="quality-val" id="qualityVal">92%</span>
+        </div>
+      </div>
+
+      <div class="sep"></div>
+
+      <!-- File queue list -->
+      <div class="section-label" id="queueLabel">Files (<span id="queueCount">0</span>)</div>
+      <div class="file-queue" id="fileQueue"></div>
+
+      <div class="sep"></div>
+
+      <!-- Convert All button -->
+      <button class="convert-btn" id="convertBtn" disabled aria-label="Convert all files">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+        </svg>
+        <span id="convertBtnLabel">Convert All Files</span>
+      </button>
+
+      <!-- Download All as ZIP button (shown after batch conversion) -->
+      <button class="zip-btn hidden" id="zipBtn" aria-label="Download all converted files as ZIP">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+        </svg>
+        <span id="zipBtnLabel">Download All as ZIP</span>
+      </button>
+
+      <!-- Add more files button -->
+      <button class="add-more-btn" id="addMoreBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"
+          width="15" height="15">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+        Add More Files
+      </button>
+
+    </div><!-- /converter-card -->
+
+  </div><!-- /container -->
+
+  <script>
+    (function () {
+      'use strict';
+
+      // ── Format Definitions ─────────────────────────────────────
+      var IMAGE_CONVERSIONS = {
+        heic: ['jpg', 'png', 'webp'],
+        heif: ['jpg', 'png', 'webp'],
+        jpg: ['png', 'webp', 'bmp', 'gif'],
+        jpeg: ['png', 'webp', 'bmp', 'gif'],
+        png: ['jpg', 'webp', 'bmp', 'gif'],
+        webp: ['jpg', 'png', 'bmp'],
+        bmp: ['jpg', 'png', 'webp'],
+        gif: ['jpg', 'png', 'webp'],
+        tiff: ['jpg', 'png', 'webp'],
+        tif: ['jpg', 'png', 'webp'],
+        avif: ['jpg', 'png', 'webp'],
+        svg: ['png', 'jpg', 'webp'],
+      };
+
+      var VIDEO_CONVERSIONS = {
+        mov: ['mp4', 'webm', 'avi', 'mkv', 'gif'],
+        avi: ['mp4', 'webm', 'mkv', 'mov'],
+        mkv: ['mp4', 'webm', 'avi', 'mov'],
+        webm: ['mp4', 'avi', 'mkv', 'mov'],
+        flv: ['mp4', 'webm', 'avi'],
+        wmv: ['mp4', 'webm', 'avi'],
+        m4v: ['mp4', 'webm', 'avi'],
+        '3gp': ['mp4', 'webm'],
+        ts: ['mp4', 'webm'],
+        mts: ['mp4', 'webm'],
+        mp4: ['webm', 'avi', 'mkv', 'mov', 'gif'],
+      };
+
+      var AUDIO_CONVERSIONS = {
+        mp3: ['wav', 'ogg', 'aac', 'flac', 'm4a'],
+        wav: ['mp3', 'ogg', 'aac', 'flac', 'm4a'],
+        ogg: ['mp3', 'wav', 'aac', 'flac'],
+        aac: ['mp3', 'wav', 'ogg', 'flac'],
+        flac: ['mp3', 'wav', 'ogg', 'aac'],
+        m4a: ['mp3', 'wav', 'ogg', 'flac'],
+        wma: ['mp3', 'wav', 'ogg'],
+        opus: ['mp3', 'wav', 'ogg'],
+        aiff: ['mp3', 'wav', 'ogg', 'flac'],
+      };
+
+      var ALL_CONVERSIONS = { image: IMAGE_CONVERSIONS, video: VIDEO_CONVERSIONS, audio: AUDIO_CONVERSIONS };
+
+      var MIME_MAP = {
+        jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+        webp: 'image/webp', bmp: 'image/bmp', gif: 'image/gif',
+        mp4: 'video/mp4', webm: 'video/webm', avi: 'video/x-msvideo',
+        mkv: 'video/x-matroska', mov: 'video/quicktime',
+        mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg',
+        aac: 'audio/aac', flac: 'audio/flac', m4a: 'audio/mp4',
+      };
+
+      var FORMAT_ICONS = {
+        jpg: '📷', jpeg: '📷', png: '🖼️', webp: '🌐', gif: '🎞️',
+        bmp: '🖼️', svg: '📊', tiff: '📷', heic: '📱', heif: '📱',
+        mp4: '🎬', mov: '🎬', avi: '📼', mkv: '📦', webm: '🌐',
+        flv: '📺', wmv: '📺', m4v: '📱',
+        mp3: '🎵', wav: '🎵', ogg: '🎵', aac: '🎵', flac: '🎵', m4a: '🎵',
+      };
+
+      var CARD_COLORS = { image: '#6366f1', video: '#8b5cf6', audio: '#06b6d4' };
+      var LOSSLESS = ['png', 'bmp', 'wav', 'flac', 'gif'];
+
+      // ── State ──────────────────────────────────────────────────
+      var fileQueue = [];       // array of { file, id, type, ext }
+      var currentTab = 'image';
+      var selectedFormat = null;
+      var ffmpegInstance = null;
+      var ffmpegLoaded = false;
+      var ffmpegLoading = false;
+      var isConverting = false;
+
+      // ── DOM refs ───────────────────────────────────────────────
+      var fileInput = document.getElementById('fileInput');
+      var dropZone = document.getElementById('dropZone');
+      var browseBtn = document.getElementById('browseBtn');
+      var addMoreBtn = document.getElementById('addMoreBtn');
+      var converterSection = document.getElementById('converterSection');
+      var formatGrid = document.getElementById('formatGrid');
+      var qualitySection = document.getElementById('qualitySection');
+      var qualitySlider = document.getElementById('qualitySlider');
+      var qualityVal = document.getElementById('qualityVal');
+      var convertBtn = document.getElementById('convertBtn');
+      var convertBtnLabel = document.getElementById('convertBtnLabel');
+      var fileQueueEl = document.getElementById('fileQueue');
+      var queueCount = document.getElementById('queueCount');
+      var ffmpegBanner = document.getElementById('ffmpegBanner');
+      var ffmpegBannerText = document.getElementById('ffmpegBannerText');
+      var supportedFmts = document.getElementById('supportedFmts');
+      var typeTabs = document.querySelectorAll('.type-tab');
+      var zipBtn = document.getElementById('zipBtn');
+      var zipBtnLabel = document.getElementById('zipBtnLabel');
+
+      // ── Tab switching ──────────────────────────────────────────
+      typeTabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          currentTab = tab.dataset.type;
+          typeTabs.forEach(function (t) { t.classList.remove('active'); });
+          tab.classList.add('active');
+          updateSupportedFormats();
+          selectedFormat = null;
+          populateFormatGrid();
+          updateConvertBtn();
+        });
+      });
+
+      function updateSupportedFormats() {
+        var map = ALL_CONVERSIONS[currentTab];
+        var exts = Object.keys(map);
+        supportedFmts.innerHTML = exts.map(function (e) {
+          return '<span class="format-chip">' + e.toUpperCase() + '</span>';
+        }).join('');
+      }
+      updateSupportedFormats();
+
+      // ── Drag & Drop / File Input ───────────────────────────────
+      browseBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        fileInput.click();
+      });
+      addMoreBtn.addEventListener('click', function () { fileInput.click(); });
+      dropZone.addEventListener('click', function () { fileInput.click(); });
+
+      fileInput.addEventListener('change', function (e) {
+        handleFiles(Array.from(e.target.files));
+        fileInput.value = '';
+      });
+
+      dropZone.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+      });
+      dropZone.addEventListener('dragleave', function () {
+        dropZone.classList.remove('drag-over');
+      });
+      dropZone.addEventListener('drop', function (e) {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        if (e.dataTransfer.files.length) handleFiles(Array.from(e.dataTransfer.files));
+      });
+
+      // ── File handling ──────────────────────────────────────────
+      function getExt(name) { return name.split('.').pop().toLowerCase(); }
+
+      function detectType(ext) {
+        if (IMAGE_CONVERSIONS[ext]) return 'image';
+        if (VIDEO_CONVERSIONS[ext]) return 'video';
+        if (AUDIO_CONVERSIONS[ext]) return 'audio';
+        return null;
+      }
+
+      function handleFiles(files) {
+        var added = 0;
+        files.forEach(function (file) {
+          var ext = getExt(file.name);
+          var type = detectType(ext);
+          if (!type) {
+            alert('".' + ext + '" is not supported and was skipped.');
+            return;
+          }
+          var id = 'fq-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+          fileQueue.push({ file: file, id: id, type: type, ext: ext, status: 'pending', resultURL: null });
+          added++;
+        });
+
+        if (added > 0) {
+          dropZone.classList.add('hidden');
+          converterSection.classList.remove('hidden');
+
+          // Auto-set tab to type of first-added file if queue was empty
+          if (fileQueue.length === added) {
+            currentTab = fileQueue[0].type;
+            typeTabs.forEach(function (t) {
+              t.classList.toggle('active', t.dataset.type === currentTab);
+            });
+            updateSupportedFormats();
+          }
+
+          populateFormatGrid();
+          renderQueue();
+          updateConvertBtn();
+        }
+      }
+
+      // ── Format Grid ────────────────────────────────────────────
+      function populateFormatGrid() {
+        // Gather union of all possible target formats for files in the queue matching currentTab
+        var targets = [];
+        var map = ALL_CONVERSIONS[currentTab];
+
+        fileQueue.forEach(function (item) {
+          if (item.type === currentTab) {
+            var t = map[item.ext] || [];
+            t.forEach(function (fmt) {
+              if (targets.indexOf(fmt) === -1) targets.push(fmt);
+            });
+          }
+        });
+
+        // If no queue items match this tab, show all formats for the tab
+        if (targets.length === 0) {
+          var allFmts = [];
+          Object.values(map).forEach(function (arr) {
+            arr.forEach(function (f) { if (allFmts.indexOf(f) === -1) allFmts.push(f); });
+          });
+          targets = allFmts;
+        }
+
+        formatGrid.innerHTML = targets.map(function (fmt) {
+          return '<button class="format-btn' + (selectedFormat === fmt ? ' selected' : '') +
+            '" data-fmt="' + fmt + '" id="fmt-' + fmt + '">' + fmt.toUpperCase() + '</button>';
+        }).join('');
+
+        formatGrid.querySelectorAll('.format-btn').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            formatGrid.querySelectorAll('.format-btn').forEach(function (b) { b.classList.remove('selected'); });
+            btn.classList.add('selected');
+            selectedFormat = btn.dataset.fmt;
+            qualitySection.classList.toggle('hidden', LOSSLESS.indexOf(selectedFormat) !== -1);
+            updateConvertBtn();
+          });
+        });
+      }
+
+      // ── Queue Rendering ───────────────────────────────────────
+      function renderQueue() {
+        queueCount.textContent = fileQueue.length;
+        convertBtnLabel.textContent = fileQueue.length === 1 ? 'Convert File' : 'Convert All Files (' + fileQueue.length + ')';
+
+        fileQueueEl.innerHTML = '';
+        fileQueue.forEach(function (item) {
+          var el = document.createElement('div');
+          el.className = 'queue-item';
+          el.id = item.id;
+
+          var statusHTML = '';
+          if (item.status === 'done' && item.resultURL) {
+            statusHTML = '<button class="qi-download" data-id="' + item.id + '">⬇ Download</button>';
+          } else if (item.status === 'error') {
+            statusHTML = '<span class="qi-error" title="' + escapeHtml(item.errorMsg || '') + '">✗ Error</span>';
+          } else if (item.status === 'converting') {
+            statusHTML = '<div class="qi-progress-wrap"><div class="qi-progress-bar"><div class="qi-progress-fill" id="qp-' + item.id + '" style="width:0%"></div></div><span class="qi-pct" id="qpct-' + item.id + '">0%</span></div>';
+          } else {
+            statusHTML = '<span class="qi-pending">Pending</span>';
+          }
+
+          el.innerHTML =
+            '<div class="qi-icon" style="background:linear-gradient(135deg,' + CARD_COLORS[item.type] + '33,' + CARD_COLORS[item.type] + '11)">' +
+            (FORMAT_ICONS[item.ext] || (item.type === 'video' ? '🎬' : item.type === 'audio' ? '🎵' : '🖼️')) +
+            '</div>' +
+            '<div class="qi-info">' +
+            '<div class="qi-name">' + escapeHtml(item.file.name) + '</div>' +
+            '<div class="qi-meta">' + formatSize(item.file.size) + ' · ' + item.ext.toUpperCase() + '</div>' +
+            '</div>' +
+            '<div class="qi-status">' + statusHTML + '</div>' +
+            '<button class="qi-remove" data-id="' + item.id + '" title="Remove" aria-label="Remove file">✕</button>';
+
+          el.querySelector('.qi-remove').addEventListener('click', function () {
+            removeFromQueue(item.id);
+          });
+
+          fileQueueEl.appendChild(el);
+
+          // Wire up download button — create fresh URL at click time to guarantee
+          // correct filename; a.download = undefined silently degrades to UUID in Chrome.
+          var dlBtn = el.querySelector('.qi-download');
+          if (dlBtn) {
+            (function (capturedItem) {
+              dlBtn.addEventListener('click', function () {
+                if (!capturedItem.resultBlob) return;
+                triggerDownload(capturedItem.resultBlob, capturedItem.resultFilename);
+              });
+            })(item);
+          }
+        });
+      }
+
+      function removeFromQueue(id) {
+        fileQueue = fileQueue.filter(function (item) {
+          if (item.id === id) {
+            if (item.resultURL) URL.revokeObjectURL(item.resultURL);
+            return false;
+          }
+          return true;
+        });
+        if (fileQueue.length === 0) {
+          converterSection.classList.add('hidden');
+          dropZone.classList.remove('hidden');
+          selectedFormat = null;
+        }
+        populateFormatGrid();
+        renderQueue();
+        updateConvertBtn();
+        // Re-evaluate ZIP button visibility
+        var doneItems = fileQueue.filter(function (it) { return it.status === 'done'; });
+        if (doneItems.length > 1) {
+          zipBtnLabel.textContent = 'Download All as ZIP (' + doneItems.length + ' files)';
+          zipBtn.classList.remove('hidden');
+        } else {
+          zipBtn.classList.add('hidden');
+        }
+      }
+
+      function updateConvertBtn() {
+        convertBtn.disabled = !selectedFormat || fileQueue.length === 0 || isConverting;
+      }
+
+      // ── ZIP Download ───────────────────────────────────────────
+      zipBtn.addEventListener('click', function () {
+        downloadAllZip();
+      });
+
+      function downloadAllZip() {
+        var doneItems = fileQueue.filter(function (it) { return it.status === 'done' && it.resultBlob; });
+        if (doneItems.length === 0) return;
+
+        zipBtnLabel.textContent = 'Zipping… please wait';
+        zipBtn.disabled = true;
+
+        var zip = new JSZip();
+        doneItems.forEach(function (item) {
+          zip.file(item.resultFilename, item.resultBlob);
+        });
+
+        zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } })
+          .then(function (zipBlob) {
+            var ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            triggerDownload(zipBlob, 'isomer-converted-' + ts + '.zip');
+            zipBtnLabel.textContent = 'Download All as ZIP (' + doneItems.length + ' files)';
+            zipBtn.disabled = false;
+          }).catch(function (err) {
+            console.error('ZIP generation failed:', err);
+            zipBtnLabel.textContent = 'ZIP failed — try again';
+            zipBtn.disabled = false;
+          });
+      }
+
+      // ── Quality slider ─────────────────────────────────────────
+      qualitySlider.addEventListener('input', function () {
+        qualityVal.textContent = qualitySlider.value + '%';
+        qualitySlider.style.setProperty('--val', qualitySlider.value + '%');
+      });
+      qualitySlider.style.setProperty('--val', '92%');
+
+      // ── Convert All ────────────────────────────────────────────
+      convertBtn.addEventListener('click', function () {
+        if (!selectedFormat || fileQueue.length === 0 || isConverting) return;
+        isConverting = true;
+        updateConvertBtn();
+
+        var quality = parseInt(qualitySlider.value);
+        var needsFFmpeg = fileQueue.some(function (item) { return item.type !== 'image'; });
+
+        if (needsFFmpeg && !ffmpegLoaded) {
+          ffmpegBanner.classList.remove('hidden');
+          ffmpegBannerText.textContent = 'Loading FFmpeg engine (first time, ~30 MB) …';
+        }
+
+        // Hide ZIP button while converting
+        zipBtn.classList.add('hidden');
+
+        // Convert queue sequentially
+        var idx = 0;
+        function convertNext() {
+          if (idx >= fileQueue.length) {
+            isConverting = false;
+            ffmpegBanner.classList.add('hidden');
+            updateConvertBtn();
+            // Show ZIP button if multiple files completed successfully
+            var doneItems = fileQueue.filter(function (it) { return it.status === 'done'; });
+            if (doneItems.length > 1) {
+              zipBtnLabel.textContent = 'Download All as ZIP (' + doneItems.length + ' files)';
+              zipBtn.classList.remove('hidden');
+            }
+            return;
+          }
+          var item = fileQueue[idx++];
+          item.status = 'converting';
+          renderQueue();
+
+          var onProgress = function (pct) {
+            var fill = document.getElementById('qp-' + item.id);
+            var pctEl = document.getElementById('qpct-' + item.id);
+            if (fill) fill.style.width = pct + '%';
+            if (pctEl) pctEl.textContent = pct + '%';
+          };
+
+          var promise;
+          if (item.type === 'image') {
+            promise = convertImage(item.file, selectedFormat, quality / 100, onProgress);
+          } else {
+            promise = convertMedia(
+              item.file, selectedFormat, quality, onProgress,
+              function (msg) { ffmpegBannerText.textContent = msg; }
+            );
+          }
+
+          promise.then(function (result) {
+            if (item.resultURL) URL.revokeObjectURL(item.resultURL);
+            item.resultBlob = result.blob;  // keep raw blob for ZIP
+            item.resultURL = URL.createObjectURL(result.blob);
+            item.resultFilename = result.filename;
+            item.status = 'done';
+            renderQueue();
+            convertNext();
+          }).catch(function (err) {
+            console.error('Error converting ' + item.file.name + ':', err);
+            item.status = 'error';
+            item.errorMsg = err.message || 'Unknown error';
+            renderQueue();
+            convertNext();
+          });
+        }
+        convertNext();
+      });
+
+      // ── Image conversion ───────────────────────────────────────
+      function convertImage(file, targetFmt, quality, onProgress) {
+        var ext = getExt(file.name);
+        var base = file.name.replace(/\.[^.]+$/, '');
+        var mime = MIME_MAP[targetFmt] || 'image/' + targetFmt;
+
+        // HEIC / HEIF — handled by heic2any
+        if (ext === 'heic' || ext === 'heif') {
+          if (typeof heic2any === 'undefined') {
+            return Promise.reject(new Error('heic2any library not loaded. Please check your internet connection.'));
+          }
+          onProgress(20);
+          var outType = targetFmt === 'jpg' ? 'image/jpeg' : 'image/' + targetFmt;
+          return heic2any({ blob: file, toType: outType, quality: quality })
+            .then(function (blob) {
+              if (Array.isArray(blob)) blob = blob[0];
+              onProgress(100);
+              return { blob: blob, filename: base + '.' + targetFmt };
+            });
+        }
+
+        // Fast path: createImageBitmap + OffscreenCanvas (Chrome/Edge/Firefox)
+        onProgress(15);
+        var needsWhiteBg = (targetFmt === 'jpg' || targetFmt === 'jpeg' || targetFmt === 'bmp');
+
+        if (typeof createImageBitmap !== 'undefined' && typeof OffscreenCanvas !== 'undefined') {
+          return createImageBitmap(file).then(function (bmp) {
+            onProgress(50);
+            var oc = new OffscreenCanvas(bmp.width, bmp.height);
+            var ctx = oc.getContext('2d');
+            if (needsWhiteBg) { ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, bmp.width, bmp.height); }
+            ctx.drawImage(bmp, 0, 0);
+            bmp.close();
+            onProgress(80);
+            return oc.convertToBlob({ type: mime, quality: quality });
+          }).then(function (blob) {
+            onProgress(100);
+            if (!blob || blob.size === 0) throw new Error('OffscreenCanvas produced empty blob.');
+            return { blob: blob, filename: base + '.' + targetFmt };
+          }).catch(function (err) {
+            // Fall through to legacy path on any error
+            console.warn('OffscreenCanvas path failed, falling back:', err.message);
+            return convertImageLegacy(file, targetFmt, quality, mime, base, needsWhiteBg, onProgress);
+          });
+        }
+
+        // Legacy fallback: <img> + canvas (Safari, older browsers)
+        return convertImageLegacy(file, targetFmt, quality, mime, base, needsWhiteBg, onProgress);
+      }
+
+      function convertImageLegacy(file, targetFmt, quality, mime, base, needsWhiteBg, onProgress) {
+        return new Promise(function (resolve, reject) {
+          onProgress(20);
+          var url = URL.createObjectURL(file);
+          var img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = function () {
+            onProgress(60);
+            var canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth || img.width;
+            canvas.height = img.naturalHeight || img.height;
+            var ctx = canvas.getContext('2d');
+            if (needsWhiteBg) { ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+            ctx.drawImage(img, 0, 0);
+            URL.revokeObjectURL(url);
+            canvas.toBlob(function (blob) {
+              onProgress(100);
+              if (!blob) return reject(new Error('Canvas toBlob failed — format may be unsupported in your browser.'));
+              resolve({ blob: blob, filename: base + '.' + targetFmt });
+            }, mime, quality);
+          };
+          img.onerror = function () {
+            URL.revokeObjectURL(url);
+            reject(new Error('Failed to load image. The file may be corrupted or unsupported.'));
+          };
+          img.src = url;
+        });
+      }
+
+      // ── FFmpeg loading (v0.11.x — single bundle, no separate util needed) ──────
+      // We use @ffmpeg/ffmpeg@0.11.6 which exposes { createFFmpeg, fetchFile }
+      // under window.FFmpeg via a single UMD script. Much simpler than 0.12.x.
+
+      function loadFFmpeg(onStatus) {
+        return new Promise(function (resolve, reject) {
+          if (ffmpegLoaded) { resolve(ffmpegInstance); return; }
+          if (ffmpegLoading) {
+            var wait = setInterval(function () {
+              if (!ffmpegLoading) {
+                clearInterval(wait);
+                if (ffmpegLoaded) resolve(ffmpegInstance);
+                else reject(new Error('FFmpeg failed to load.'));
+              }
+            }, 300);
+            return;
+          }
+          ffmpegLoading = true;
+          onStatus('Downloading FFmpeg engine (~25 MB, first time only)…');
+
+          function loadScript(src, cb, errCb) {
+            var s = document.createElement('script');
+            s.src = src;
+            s.onload = cb;
+            s.onerror = errCb;
+            document.head.appendChild(s);
+          }
+
+          // Step 1: load the single ffmpeg@0.11.6 UMD bundle
+          loadScript(
+            'https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js',
+            function () {
+              // window.FFmpeg is now { createFFmpeg, fetchFile }
+              var lib = window.FFmpeg;
+              if (!lib || typeof lib.createFFmpeg !== 'function') {
+                ffmpegLoading = false;
+                reject(new Error('FFmpeg script loaded but createFFmpeg not found. Check CDN availability.'));
+                return;
+              }
+
+              onStatus('Initialising FFmpeg…');
+
+              // Multi-threaded core — full speed. Requires COOP/COEP headers (provided by server.py).
+              var corePath = 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js';
+              var ff = lib.createFFmpeg({
+                corePath: corePath,
+                log: false,
+                progress: function (p) {
+                  // Expose progress for use in convertMedia
+                  window._ffProgress = p.ratio || 0;
+                },
+              });
+
+              ff.load()
+                .then(function () {
+                  ffmpegInstance = ff;
+                  window._ffFetchFile = lib.fetchFile;
+                  ffmpegLoaded = true;
+                  ffmpegLoading = false;
+                  onStatus('FFmpeg ready.');
+                  resolve(ffmpegInstance);
+                })
+                .catch(function (e) {
+                  ffmpegLoading = false;
+                  reject(new Error('FFmpeg core load failed: ' + e.message));
+                });
+            },
+            function () {
+              ffmpegLoading = false;
+              reject(new Error('Failed to download FFmpeg script. Check your internet connection.'));
+            }
+          );
+        });
+      }
+
+      function buildFFmpegArgs(input, output, targetFmt, quality) {
+        // v0.11 API: ffmpeg.run(...args) — no '-y' needed (it always overwrites)
+        var crf = Math.max(0, Math.min(51, Math.round((100 - quality) * 0.51)));
+        var q = Math.max(1, Math.round(crf / 4));
+        switch (targetFmt) {
+          case 'mp4': return ['-i', input, '-c:v', 'libx264', '-crf', String(crf), '-preset', 'ultrafast', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', output];
+          case 'webm': return ['-i', input, '-c:v', 'libvpx', '-crf', String(crf), '-b:v', '0', '-c:a', 'libvorbis', output];
+          case 'avi': return ['-i', input, '-c:v', 'mpeg4', '-q:v', String(q), '-c:a', 'mp3', output];
+          case 'mkv': return ['-i', input, '-c:v', 'libx264', '-crf', String(crf), '-preset', 'ultrafast', '-c:a', 'aac', output];
+          case 'mov': return ['-i', input, '-c:v', 'libx264', '-crf', String(crf), '-preset', 'ultrafast', '-c:a', 'aac', output];
+          case 'gif': return ['-i', input, '-vf', 'fps=10,scale=320:-1:flags=lanczos,palettegen=stats_mode=diff', '-loop', '0', output];
+          case 'mp3': return ['-i', input, '-c:a', 'libmp3lame', '-q:a', String(Math.max(0, Math.round(crf / 6))), output];
+          case 'wav': return ['-i', input, '-c:a', 'pcm_s16le', output];
+          case 'ogg': return ['-i', input, '-c:a', 'libvorbis', '-q:a', String(Math.max(1, Math.round(10 - crf / 6))), output];
+          case 'aac': return ['-i', input, '-c:a', 'aac', '-b:a', '192k', output];
+          case 'flac': return ['-i', input, '-c:a', 'flac', output];
+          case 'm4a': return ['-i', input, '-c:a', 'aac', '-b:a', '256k', output];
+          default: return ['-i', input, output];
+        }
+      }
+
+      function convertMedia(file, targetFmt, quality, onProgress, onStatus) {
+        return loadFFmpeg(onStatus).then(function (ffmpeg) {
+          var fetchFile = window._ffFetchFile;
+          var inputName = 'input.' + getExt(file.name);
+          var outputName = 'output.' + targetFmt;
+
+          onProgress(5);
+          onStatus('Reading file…');
+
+          // v0.11 API: fetchFile returns Uint8Array, write via FS
+          return fetchFile(file).then(function (data) {
+            ffmpeg.FS('writeFile', inputName, data);
+            onProgress(20);
+            onStatus('Converting… (this may take a minute for large files)');
+
+            // Poll window._ffProgress for progress updates
+            window._ffProgress = 0;
+            var pollTimer = setInterval(function () {
+              var pct = 20 + Math.round((window._ffProgress || 0) * 70);
+              onProgress(Math.min(pct, 89));
+            }, 300);
+
+            var args = buildFFmpegArgs(inputName, outputName, targetFmt, quality);
+            return ffmpeg.run.apply(ffmpeg, args)
+              .then(function () {
+                clearInterval(pollTimer);
+                onProgress(92);
+                onStatus('Packaging output…');
+                var data = ffmpeg.FS('readFile', outputName);
+                var mime = MIME_MAP[targetFmt] || 'application/octet-stream';
+                // Copy to avoid SharedArrayBuffer issues in some browsers
+                var copy = new Uint8Array(data.length);
+                copy.set(data);
+                var blob = new Blob([copy], { type: mime });
+                try { ffmpeg.FS('unlink', inputName); } catch (_) { }
+                try { ffmpeg.FS('unlink', outputName); } catch (_) { }
+                var base = file.name.replace(/\.[^.]+$/, '');
+                onProgress(100);
+                return { blob: blob, filename: base + '.' + targetFmt };
+              })
+              .catch(function (err) {
+                clearInterval(pollTimer);
+                throw err;
+              });
+          });
+        });
+      }
+
+      // ── Helpers ─────────────────────────────────────────────
+
+      /**
+       * Most reliable cross-browser file download.
+       * Creates a fresh temporary blob URL so the `download` attribute
+       * is always respected — avoids the UUID-filename bug in Chrome.
+       */
+      function triggerDownload(blob, filename) {
+        if (!blob || !filename) {
+          console.error('triggerDownload: missing blob or filename', { blob: blob, filename: filename });
+          return;
+        }
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.setAttribute('download', filename);   // setAttribute, not .download = x
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        // dispatch real MouseEvent — more reliable than a.click() in some browsers
+        a.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+        setTimeout(function () {
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 200);
+      }
+
+      function formatSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / 1048576).toFixed(2) + ' MB';
+      }
+
+      function escapeHtml(str) {
+        return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      }
+
+    })(); // end IIFE
+  </script>
+
+</body>
+
+</html>
